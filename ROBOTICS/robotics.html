@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firefighter Robot Simulation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: rgba(30, 41, 59, 0.7);
+            --primary: #3b82f6;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --gas: #a855f7;
+            --mixed: #ec4899;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(239, 68, 68, 0.15), transparent 25%);
+        }
+
+        .dashboard {
+            width: 350px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 10;
+            overflow-y: auto;
+        }
+
+        .header {
+            margin-bottom: 5px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 800;
+            background: linear-gradient(to right, #60a5fa, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        .card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .anomaly-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .anomaly-btn {
+            padding: 8px 4px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .anomaly-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .anomaly-btn.active[data-type="all"] { background: rgba(236, 72, 153, 0.2); border-color: var(--mixed); }
+        .anomaly-btn.active[data-type="fire"] { background: rgba(239, 68, 68, 0.2); border-color: var(--danger); }
+        .anomaly-btn.active[data-type="gas"] { background: rgba(168, 85, 247, 0.2); border-color: var(--gas); }
+        .anomaly-btn.active[data-type="temp"] { background: rgba(245, 158, 11, 0.2); border-color: var(--warning); }
+
+        .sensor-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .sensor {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .sensor-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+
+        .sensor-value {
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease, background-color 0.3s ease;
+            width: 0%;
+            background-color: var(--primary);
+        }
+
+        .progress-fill.danger-fire { background-color: var(--danger); box-shadow: 0 0 10px var(--danger); }
+        .progress-fill.danger-gas { background-color: var(--gas); box-shadow: 0 0 10px var(--gas); }
+        .progress-fill.danger-temp { background-color: var(--warning); box-shadow: 0 0 10px var(--warning); }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .control-group label {
+            font-size: 14px;
+        }
+
+        .control-group input {
+            width: 80px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981;
+        }
+
+        .status-dot.active {
+            background: var(--danger);
+            animation: pulse 1s infinite;
+        }
+        
+        .status-dot.water {
+            background: var(--primary);
+            box-shadow: 0 0 8px var(--primary);
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        #simulation-container {
+            flex: 1;
+            position: relative;
+            cursor: crosshair;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <div class="header">
+            <h1>Firefighter Robot</h1>
+            <p>Real-time Sensor Telemetry & Simulation</p>
+        </div>
+
+        <div class="card">
+            <h2>🎯 Select Event to Spawn</h2>
+            <div class="anomaly-selector">
+                <button class="anomaly-btn active" data-type="all" onclick="setAnomalyType('all')">
+                    <span style="font-size: 20px;">🌋</span> All Sensors
+                </button>
+                <button class="anomaly-btn" data-type="fire" onclick="setAnomalyType('fire')">
+                    <span style="font-size: 20px;">🔥</span> Flame Only
+                </button>
+                <button class="anomaly-btn" data-type="gas" onclick="setAnomalyType('gas')">
+                    <span style="font-size: 20px;">💨</span> Gas Only
+                </button>
+                <button class="anomaly-btn" data-type="temp" onclick="setAnomalyType('temp')">
+                    <span style="font-size: 20px;">🌡️</span> Temp Only
+                </button>
+                <button class="anomaly-btn" data-type="fire_gas" onclick="setAnomalyType('fire_gas')">
+                    <span style="font-size: 20px;">🔥💨</span> Flame + Gas
+                </button>
+                <button class="anomaly-btn" data-type="fire_temp" onclick="setAnomalyType('fire_temp')">
+                    <span style="font-size: 20px;">🔥🌡️</span> Flame + Temp
+                </button>
+                <button class="anomaly-btn" data-type="gas_temp" onclick="setAnomalyType('gas_temp')">
+                    <span style="font-size: 20px;">💨🌡️</span> Gas + Temp
+                </button>
+            </div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 12px; text-align: center;">
+                Select an event type above, then click anywhere on the grid to simulate it.
+            </p>
+        </div>
+
+        <div class="card">
+            <h2>⚙️ System Settings</h2>
+            <div class="control-group">
+                <label for="threshold">Detection Range</label>
+                <input type="number" id="threshold" value="50" min="10" max="100">
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📊 Sensor Data</h2>
+            <div class="sensor-group">
+                <div class="sensor">
+                    <div class="sensor-header">
+                        <span>Temperature (DHT11)</span>
+                        <span class="sensor-value" id="val-temp">24 °C</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="bar-temp" style="width: 24%;"></div>
+                    </div>
+                </div>
+
+                <div class="sensor">
+                    <div class="sensor-header">
+                        <span>Flame (IR)</span>
+                        <span class="sensor-value" id="val-flame">0 %</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="bar-flame" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <div class="sensor">
+                    <div class="sensor-header">
+                        <span>Smoke (MQ2 Gas)</span>
+                        <span class="sensor-value" id="val-smoke">5 %</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="bar-smoke" style="width: 5%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>🤖 Robot Status</h2>
+            <div class="status-indicator" id="robot-status">
+                <div class="status-dot" id="status-dot"></div>
+                <span id="status-text">Idle - Monitoring</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="simulation-container">
+        <canvas id="simCanvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('simulation-container');
+
+        // Set canvas config
+        function resize() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // DOM Elements
+        const thresholdInput = document.getElementById('threshold');
+        const valTemp = document.getElementById('val-temp');
+        const valFlame = document.getElementById('val-flame');
+        const valSmoke = document.getElementById('val-smoke');
+        const barTemp = document.getElementById('bar-temp');
+        const barFlame = document.getElementById('bar-flame');
+        const barSmoke = document.getElementById('bar-smoke');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+
+        let currentAnomalyType = 'all';
+
+        function setAnomalyType(type) {
+            currentAnomalyType = type;
+            document.querySelectorAll('.anomaly-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.type === type) btn.classList.add('active');
+            });
+        }
+
+        // Simulation Entities
+        let activeAnomaly = null; // {x, y, intensity, type}
+        const particles = []; // Water particles
+        const smokeParticles = []; // For fire/gas fx
+
+        const robot = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            angle: 0,
+            radius: 20,
+            speed: 3.5,
+            state: 'idle', // idle, moving, spraying
+            sprayDistance: 80,
+            screenText: 'ALL CLEAR',
+            screenColor: '#10b981'
+        };
+
+        // Handle Click to spawn anomaly
+        container.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            activeAnomaly = {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top,
+                intensity: 100,
+                type: currentAnomalyType
+            };
+        });
+
+        function updateSensors() {
+            let temp = 24; 
+            let flame = 0;
+            let smoke = 5;
+
+            robot.screenText = "ALL CLEAR";
+            robot.screenColor = "#10b981";
+
+            if (activeAnomaly) {
+                const dist = Math.hypot(activeAnomaly.x - robot.x, activeAnomaly.y - robot.y);
+                const signalStrength = Math.max(0, 100 - (dist / 8));
+                
+                if (activeAnomaly.type === 'all') {
+                    temp = 24 + (signalStrength * 0.76 * (activeAnomaly.intensity / 100));
+                    flame = signalStrength * (activeAnomaly.intensity / 100);
+                    smoke = 5 + (signalStrength * 0.95 * (activeAnomaly.intensity / 100));
+                } else if (activeAnomaly.type === 'fire') {
+                    flame = signalStrength * (activeAnomaly.intensity / 100);
+                } else if (activeAnomaly.type === 'gas') {
+                    smoke = 5 + (signalStrength * 0.95 * (activeAnomaly.intensity / 100));
+                } else if (activeAnomaly.type === 'temp') {
+                    temp = 24 + (signalStrength * 0.8 * (activeAnomaly.intensity / 100));
+                } else if (activeAnomaly.type === 'fire_gas') {
+                    flame = signalStrength * (activeAnomaly.intensity / 100);
+                    smoke = 5 + (signalStrength * 0.95 * (activeAnomaly.intensity / 100));
+                } else if (activeAnomaly.type === 'fire_temp') {
+                    flame = signalStrength * (activeAnomaly.intensity / 100);
+                    temp = 24 + (signalStrength * 0.8 * (activeAnomaly.intensity / 100));
+                } else if (activeAnomaly.type === 'gas_temp') {
+                    smoke = 5 + (signalStrength * 0.95 * (activeAnomaly.intensity / 100));
+                    temp = 24 + (signalStrength * 0.8 * (activeAnomaly.intensity / 100));
+                }
+            }
+
+            // Add standard noise
+            temp += (Math.random() - 0.5) * 2;
+            flame += (Math.random() - 0.5) * 2;
+            smoke += (Math.random() - 0.5) * 2;
+
+            // Clamp defaults
+            temp = Math.max(24, Math.min(100, temp));
+            flame = Math.max(0, Math.min(100, flame));
+            smoke = Math.max(0, Math.min(100, smoke));
+
+            // Map user input (10 to 100) to an internal threshold (97.5 down to 30)
+            // So that higher range value = detects from further away
+            const rangeValue = parseInt(thresholdInput.value, 10);
+            const internalThreshold = 105 - (rangeValue * 0.75);
+            
+            // Determine Alert State
+            const isTempAlert = temp > internalThreshold;
+            const isFlameAlert = flame > internalThreshold;
+            const isSmokeAlert = smoke > internalThreshold;
+            const isAlert = isTempAlert || isFlameAlert || isSmokeAlert;
+
+            // Update UI & Robot Screen State
+            if (isAlert) {
+                if (isFlameAlert && isSmokeAlert && isTempAlert) {
+                    robot.screenText = "CRITICAL: ALL HAZARDS!";
+                    robot.screenColor = "#ec4899"; // Pink mixed warning
+                } else if (isFlameAlert && isSmokeAlert) {
+                    robot.screenText = "MULTI: FLAME + GAS!";
+                    robot.screenColor = "#ec4899";
+                } else if (isFlameAlert && isTempAlert) {
+                    robot.screenText = "MULTI: FLAME + TEMP!";
+                    robot.screenColor = "#ec4899";
+                } else if (isSmokeAlert && isTempAlert) {
+                    robot.screenText = "MULTI: GAS + TEMP!";
+                    robot.screenColor = "#ec4899";
+                } else if (activeAnomaly && activeAnomaly.type === 'all') {
+                     robot.screenText = "CRITICAL HAZARD!";
+                     robot.screenColor = "#ec4899";
+                } else if (isFlameAlert) {
+                    robot.screenText = "FLAME DETECTED!";
+                    robot.screenColor = "#ef4444";
+                } else if (isSmokeAlert) {
+                    robot.screenText = "GAS DETECTED!";
+                    robot.screenColor = "#a855f7";
+                } else if (isTempAlert) {
+                    robot.screenText = "HIGH TEMP!";
+                    robot.screenColor = "#f59e0b";
+                }
+            }
+
+            valTemp.innerText = `${temp.toFixed(1)} °C`;
+            valFlame.innerText = `${flame.toFixed(1)} %`;
+            valSmoke.innerText = `${smoke.toFixed(1)} %`;
+
+            barTemp.style.width = `${temp}%`;
+            barFlame.style.width = `${flame}%`;
+            barSmoke.style.width = `${smoke}%`;
+
+            [barTemp, barFlame, barSmoke].forEach(bar => {
+                bar.className = 'progress-fill'; // reset
+            });
+
+            if (isTempAlert) barTemp.classList.add('danger-temp');
+            if (isFlameAlert) barFlame.classList.add('danger-fire');
+            if (isSmokeAlert) barSmoke.classList.add('danger-gas');
+
+            return { temp, flame, smoke, isAlert };
+        }
+
+        function updateRobot(isAlert) {
+            if (isAlert && activeAnomaly) {
+                const dist = Math.hypot(activeAnomaly.x - robot.x, activeAnomaly.y - robot.y);
+                robot.angle = Math.atan2(activeAnomaly.y - robot.y, activeAnomaly.x - robot.x);
+
+                if (dist > robot.sprayDistance) {
+                    robot.x += Math.cos(robot.angle) * robot.speed;
+                    robot.y += Math.sin(robot.angle) * robot.speed;
+                    robot.state = 'moving';
+                } else {
+                    robot.state = 'spraying';
+                    activeAnomaly.intensity -= 0.5; 
+                    
+                    if (activeAnomaly.intensity <= 0) {
+                        activeAnomaly = null;
+                        robot.state = 'idle';
+                    } else {
+                        // Water particles toward the anomaly
+                        for(let i=0; i<3; i++) {
+                            particles.push({
+                                x: robot.x + Math.cos(robot.angle) * robot.radius,
+                                y: robot.y + Math.sin(robot.angle) * robot.radius,
+                                vx: (Math.cos(robot.angle) + (Math.random()-0.5)*0.2) * 8,
+                                vy: (Math.sin(robot.angle) + (Math.random()-0.5)*0.2) * 8,
+                                life: 1.0
+                            });
+                        }
+                    }
+                }
+            } else {
+                robot.state = 'idle';
+            }
+
+            // Sync Robot Status UI pane
+            statusDot.className = 'status-dot';
+            if (robot.state === 'idle') {
+                statusText.innerText = 'Idle - Monitoring';
+            } else if (robot.state === 'moving') {
+                statusText.innerText = 'Moving to Target...';
+                statusDot.classList.add('active');
+                if(robot.screenColor === '#a855f7') statusDot.style.backgroundColor = '#a855f7';
+                else if(robot.screenColor === '#f59e0b') statusDot.style.backgroundColor = '#f59e0b';
+                else if(robot.screenColor === '#ec4899') statusDot.style.backgroundColor = '#ec4899';
+                else statusDot.style.backgroundColor = '#ef4444';
+            } else if (robot.state === 'spraying') {
+                statusText.innerText = 'Ejecting Water!';
+                statusDot.classList.add('water');
+                statusDot.style.backgroundColor = '';
+            }
+        }
+
+        function handleEffects() {
+            if (activeAnomaly && Math.random() < 0.3) {
+                if (activeAnomaly.type === 'all' || activeAnomaly.type === 'fire' || activeAnomaly.type === 'fire_gas' || activeAnomaly.type === 'fire_temp') {
+                    smokeParticles.push({
+                        x: activeAnomaly.x + (Math.random() - 0.5) * 30,
+                        y: activeAnomaly.y + (Math.random() - 0.5) * 30,
+                        vx: (Math.random() - 0.5), vy: -1 - Math.random() * 2,
+                        radius: 10 + Math.random() * 20, life: 1.0, type: 'smoke'
+                    });
+                }
+                
+                if (activeAnomaly.type === 'all' || activeAnomaly.type === 'gas' || activeAnomaly.type === 'fire_gas' || activeAnomaly.type === 'gas_temp') {
+                    smokeParticles.push({
+                        x: activeAnomaly.x + (Math.random() - 0.5) * 50,
+                        y: activeAnomaly.y + (Math.random() - 0.5) * 50,
+                        vx: (Math.random() - 0.5)*2, vy: (Math.random() - 0.5)*2,
+                        radius: 20 + Math.random() * 30, life: 1.0, type: 'gas'
+                    });
+                }
+            }
+
+            // Move Water
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+            // Move FX
+            for (let i = smokeParticles.length - 1; i >= 0; i--) {
+                let p = smokeParticles[i];
+                p.x += p.vx; p.y += p.vy; p.radius += 0.5; p.life -= 0.01;
+                if (p.life <= 0) smokeParticles.splice(i, 1);
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Grid
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
+            for(let i=0; i<canvas.width; i+=50) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
+            for(let i=0; i<canvas.height; i+=50) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); ctx.stroke(); }
+
+            // Draw Base Anomaly
+            if (activeAnomaly) {
+                const size = (activeAnomaly.intensity / 100) * 40;
+                ctx.globalCompositeOperation = 'screen';
+                
+                if (activeAnomaly.type === 'all' || activeAnomaly.type === 'fire' || activeAnomaly.type === 'fire_gas' || activeAnomaly.type === 'fire_temp') {
+                    // Fire glow
+                    const grad = ctx.createRadialGradient(activeAnomaly.x, activeAnomaly.y, 0, activeAnomaly.x, activeAnomaly.y, size * 2);
+                    grad.addColorStop(0, 'rgba(239, 68, 68, 0.5)'); grad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+                    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(activeAnomaly.x, activeAnomaly.y, size * 2, 0, Math.PI * 2); ctx.fill();
+                    // Core
+                    ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.arc(activeAnomaly.x, activeAnomaly.y, size * 0.6, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(activeAnomaly.x, activeAnomaly.y, size * 0.4, 0, Math.PI * 2); ctx.fill();
+                } 
+                
+                if (activeAnomaly.type === 'all' || activeAnomaly.type === 'gas' || activeAnomaly.type === 'fire_gas' || activeAnomaly.type === 'gas_temp') {
+                    const grad = ctx.createRadialGradient(activeAnomaly.x, activeAnomaly.y, 0, activeAnomaly.x, activeAnomaly.y, size * 3);
+                    grad.addColorStop(0, 'rgba(168, 85, 247, 0.4)'); grad.addColorStop(1, 'rgba(168, 85, 247, 0)');
+                    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(activeAnomaly.x, activeAnomaly.y, size * 3, 0, Math.PI * 2); ctx.fill();
+                } 
+                
+                if (activeAnomaly.type === 'all' || activeAnomaly.type === 'temp' || activeAnomaly.type === 'fire_temp' || activeAnomaly.type === 'gas_temp') {
+                    ctx.strokeStyle = `rgba(245, 158, 11, ${0.8 * activeAnomaly.intensity/100})`; ctx.lineWidth = 3;
+                    ctx.beginPath(); ctx.arc(activeAnomaly.x, activeAnomaly.y, size * 1.5 + Math.sin(Date.now()/150)*8, 0, Math.PI * 2); ctx.stroke();
+                    const grad = ctx.createRadialGradient(activeAnomaly.x, activeAnomaly.y, 0, activeAnomaly.x, activeAnomaly.y, size * 1.5);
+                    grad.addColorStop(0, 'rgba(239, 68, 68, 0.6)'); grad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+                    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(activeAnomaly.x, activeAnomaly.y, size * 1.5, 0, Math.PI * 2); ctx.fill();
+                }
+                ctx.globalCompositeOperation = 'source-over';
+            }
+
+            // Draw FX
+            smokeParticles.forEach(p => {
+                if(p.type === 'smoke') ctx.fillStyle = `rgba(100, 100, 100, ${p.life * 0.3})`;
+                else if(p.type === 'gas') ctx.fillStyle = `rgba(168, 85, 247, ${p.life * 0.15})`;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
+            });
+
+            // Draw Water
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.8)';
+            particles.forEach(p => {
+                ctx.beginPath(); ctx.arc(p.x, p.y, 3 * p.life, 0, Math.PI * 2); ctx.fill();
+            });
+
+            // --- DRAW ROBOT ---
+            ctx.save();
+            ctx.translate(robot.x, robot.y);
+            
+            // Draw floating Status Screen ATTACHED to robot but NOT rotating with it
+            ctx.save();
+            ctx.translate(0, -45); // move above robot
+            
+            // The screen background box
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+            ctx.strokeStyle = robot.screenColor;
+            ctx.lineWidth = 2;
+            
+            // Width dependent on text length
+            const textWidth = ctx.measureText(robot.screenText).width + 30;
+            const w = Math.max(100, textWidth);
+            
+            ctx.beginPath();
+            ctx.roundRect(-w/2, -15, w, 30, 6);
+            ctx.fill();
+            ctx.stroke();
+
+            // Screen text
+            ctx.fillStyle = robot.screenColor;
+            ctx.font = 'bold 12px Inter';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(robot.screenText, 0, 0);
+
+            // Screen pointer (triangle)
+            ctx.beginPath();
+            ctx.moveTo(-6, 15); ctx.lineTo(6, 15); ctx.lineTo(0, 22);
+            ctx.fillStyle = robot.screenColor; ctx.fill();
+            ctx.restore(); // end floating screen
+
+
+            // Rotate exactly robot body
+            ctx.rotate(robot.angle);
+            
+            // Spray range
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.arc(0, 0, robot.sprayDistance, 0, Math.PI*2); ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Chassis
+            ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 10;
+            ctx.fillStyle = '#1e293b'; ctx.fillRect(-30, -22, 60, 44);
+            
+            // Wheels
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(-22, -28, 14, 8); ctx.fillRect(-22, 20, 14, 8);
+            ctx.fillRect(15, -28, 14, 8); ctx.fillRect(15, 20, 14, 8);
+
+            // Front nozzle
+            ctx.fillStyle = '#3b82f6'; ctx.fillRect(25, -12, 12, 24);
+            
+            // Led indicating active status
+            ctx.fillStyle = (robot.state !== 'idle') ? robot.screenColor : '#1e293b';
+            ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI*2); ctx.fill();
+
+            ctx.restore();
+        }
+
+        function loop() {
+            const sensors = updateSensors();
+            updateRobot(sensors.isAlert);
+            handleEffects();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+
+    </script>
+</body>
+</html>
